@@ -2458,6 +2458,14 @@ eote.process.calculateDamage = function (cmd, diceObj) {
     var splitCmd = values.split("|");
     var damage = parseInt(splitCmd[0]);
     var critical = parseInt(splitCmd[1]);
+    if (splitCmd.length > 2) {
+        var targetType = splitCmd[2];
+        diceObj.vars.targetType = targetType;
+    }
+    if (splitCmd.length > 3) {
+        var criticalBonus = parseInt(splitCmd[3]);
+        diceObj.vars.criticalBonus = criticalBonus;
+    }
     var calculatedDamage = (diceObj.totals.success + damage) - 1;
     if (diceObj.totals.success > 0) {
         diceObj.vars.calculatedDamage = "{{Hit For=" + calculatedDamage + " (before bonuses)}}";
@@ -2467,7 +2475,11 @@ eote.process.calculateDamage = function (cmd, diceObj) {
     if (diceObj.totals.advantage >= critical) {
         var randomCrit =  Math.floor(Math.random() * 100) + 1;
         diceObj.vars.inflictedCriticalValue = randomCrit;
-        diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Critical Hit=" + randomCrit + " (before bonuses)}}";
+        diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Critical Roll=" + randomCrit + "}}";
+        if (typeof criticalBonus !== 'undefined') {
+            diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Critical Bonus=" + criticalBonus + "}}";
+            diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Total Critical=" + (criticalBonus + randomCrit) + "}}";
+        }
     }
     return diceObj;
 }
@@ -3796,18 +3808,34 @@ eote.process.diceOutput = function (diceObj, playerName, playerID) {
     }
     eote.process.logger("eote.process.rollResult", diceTextResults);
     if (diceObj.vars.inflictedCriticalValue) {
-        for (var key in critTableLifeform) {
-            var percent = critTableLifeform[key].percent.split(' to ');
+        var criticalTable = critTableLifeform;
+        var targetTypeName = "NPC";
+        if(diceObj.vars.targetType) {
+            targetTypeName = diceObj.vars.targetType.toUpperCase();
+        }
+        if (targetTypeName == "VEHICLE" || targetTypeName == "STARSHIP") {
+            criticalTable = critTableMachine;
+        }
+        for (var key in criticalTable) {
+            var percent = criticalTable[key].percent.split(' to ');
             var low = parseInt(percent[0]);
             var high = percent[1] ? parseInt(percent[1]) : 1000;
             var rollTotal = diceObj.vars.inflictedCriticalValue;
+            var afterBonus = rollTotal;
+            if (diceObj.vars.criticalBonus) {
+                afterBonus = diceObj.vars.criticalBonus + rollTotal;
+            }
            
-            if ((rollTotal >= low) && (rollTotal <= high)) {
-                var chat = '/direct &{template:base} {{title=NPC Critical (if no bonus)}} ';
+            if ((afterBonus >= low) && (afterBonus <= high)) {
+                var chat = '/direct &{template:base} {{title=' + targetTypeName + ' Critical}} ';
                 chat = chat + '{{subtitle=' + diceObj.vars.characterName + '}}';
                 chat = chat + '{{Crit Dice Roll=' + rollTotal + '}}';
-                chat = chat + '{{wide=<b>' + critTableLifeform[key].name + '</b><br>';
-                chat = chat + critTableLifeform[key].Result + '<br>}}';
+                if (diceObj.vars.criticalBonus) {
+                    chat = chat + '{{Crit Bonus=' + diceObj.vars.criticalBonus + '}}';
+                    chat = chat + '{{Total Critical=' + (rollTotal + diceObj.vars.criticalBonus) + '}}';
+                }
+                chat = chat + '{{wide=<b>' + criticalTable[key].name + '</b><br>';
+                chat = chat + criticalTable[key].Result + '<br>}}';
 
                 sendChat(diceObj.vars.characterName, chat);
             }
