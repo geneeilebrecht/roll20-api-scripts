@@ -2459,7 +2459,6 @@ eote.process.calculateDamage = function (cmd, diceObj) {
     var damage = parseInt(splitCmd[0]);
     var critical = parseInt(splitCmd[1]);
     var calculatedDamage = (diceObj.totals.success + damage) - 1;
-    sendChat('Dice Roller',splitCmd[1]);
     if (diceObj.totals.success > 0) {
         diceObj.vars.calculatedDamage = "{{Hit For=" + calculatedDamage + " (before bonuses)}}";
     } else {
