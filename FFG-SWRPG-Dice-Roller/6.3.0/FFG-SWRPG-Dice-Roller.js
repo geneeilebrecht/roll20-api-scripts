@@ -2466,10 +2466,310 @@ eote.process.calculateDamage = function (cmd, diceObj) {
     }
     if (diceObj.totals.advantage >= critical) {
         var randomCrit =  Math.floor(Math.random() * Math.floor(101));
+        diceObj.vars.inflictedCriticalValue = randomCrit;
         diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Critical Hit=" + randomCrit + " (before bonuses)}}";
     }
     return diceObj;
 }
+
+var critTableLifeform = [
+    {
+        percent: '1 to 5',
+        severity: 1,
+        name: 'Minor Nick',
+        Result: 'Suffer 1 strain.'
+    },
+    {
+        percent: '6 to 10',
+        severity: 1,
+        name: 'Slowed Down',
+        Result: 'May only act during last allied Initiative slot on next turn.'
+    },
+    {
+        percent: '11 to 15',
+        severity: 1,
+        name: 'Sudden Jolt',
+        Result: 'May only act during last hero Initiative slot on next turn.'
+    },
+    {
+        percent: '16 to 20',
+        severity: 1,
+        name: 'Distracted',
+        Result: 'Cannot perform free maneuver on next turn.'
+    },
+    {
+        percent: '21 to 25',
+        severity: 1,
+        name: 'Off-Balance',
+        Result: 'Add 1 Setback die to next skill check.'
+    },
+    {
+        percent: '26 to 30',
+        severity: 1,
+        name: 'Discouraging Wound',
+        Result: 'Flip one light destiny to dark.'
+    },
+    {
+        percent: '31 to 35',
+        severity: 1,
+        name: 'Stunned',
+        Result: 'Staggered, cannot perform action on next turn.'
+    },
+    {
+        percent: '36 to 40',
+        severity: 1,
+        name: 'Stinger',
+        Result: 'Increase difficulty of next check by 1 Difficulty die.'
+    },
+    //----------------------------- Severity 2
+    {
+        percent: '41 to 45',
+        severity: 2,
+        name: 'Bowled Over',
+        Result: 'Knocked prone and suffer 1 strain.'
+    },
+    {
+        percent: '46 to 50',
+        severity: 2,
+        name: 'Head Ringer',
+        Result: 'Increase difficulty of all Intellect and Cunning checks by 1 Difficulty die until end of encounter.'
+    },
+    {
+        percent: '51 to 55',
+        severity: 2,
+        name: 'Fearsome Wound',
+        Result: 'Increase difficulty of all Presence and Willpower checks by 1 Difficulty die until end of encounter.'
+    },
+    {
+        percent: '56 to 60',
+        severity: 2,
+        name: 'Agonizing Wound',
+        Result: 'Increase difficulty of all Brawn and Agility checks by 1 Difficulty die until end of encounter.'
+    },
+    {
+        percent: '61 to 65',
+        severity: 2,
+        name: 'Slightly Dazed',
+        Result: 'Add 1 Setback die to all skill checks until end of encounter.'
+    },
+    {
+        percent: '66 to 70',
+        severity: 2,
+        name: 'Scattered Senses',
+        Result: 'Remove all Boost dice from all skill checks until end of encounter.'
+    },
+    {
+        percent: '71 to 75',
+        severity: 2,
+        name: 'Hamstrung',
+        Result: 'Lose free maneuver until end of encounter.'
+    },
+    {
+        percent: '76 to 80',
+        severity: 2,
+        name: 'Staggered',
+        Result: 'Attacker may immediately attempt another free attack against you using same dice pool as original attack.'
+    },
+    {
+        percent: '81 to 85',
+        severity: 2,
+        name: 'Winded',
+        Result: 'Cannot voluntarily suffer strain to activate abilities or gain additional maneuvers until end of encounter.'
+    },
+    {
+        percent: '86 to 90',
+        severity: 2,
+        name: 'Compromised',
+        Result: 'Increase difficulty of all skill checks by 1 Difficulty die until end of encounter.'
+    },
+    //---------------------------------------- Severity 3
+    {
+        percent: '91 to 95',
+        severity: 3,
+        name: 'At the Brink',
+        Result: 'Suffer 1 strain each time you perform an action.'
+    },
+    {
+        percent: '96 to 100',
+        severity: 3,
+        name: 'Crippled',
+        Result: 'Limb crippled until healed or replaced. Increase difficulty of all checks that use that limb by 1 Difficulty die.'
+    },
+    {
+        percent: '101 to 105',
+        severity: 3,
+        name: 'Maimed',
+        Result: 'Limb permanently lost. Unless you have a cybernetic replacement, cannot perform actions that use that limb. Add 1 Setback to all other actions.'
+    },
+    {
+        percent: '106 to 110',
+        severity: 3,
+        name: 'Horrific Injury',
+        Result: 'Roll 1d10 to determine one wounded characteristic -- roll results(1-3 = Brawn, 4-6 = Agility, 7 = Intellect, 8 = Cunning, 9 = Presence, 10 = Willpower. Until Healed, treat characteristic as one point lower.'
+    },
+    {
+        percent: '111 to 115',
+        severity: 3,
+        name: 'Temporarily Lame',
+        Result: 'Until healed, may not perform more than one maneuver each turn.'
+    },
+    {
+        percent: '116 to 120',
+        severity: 3,
+        name: 'Blinded',
+        Result: 'Can no longer see. Upgrade the difficulty of Perception and Vigilance checks three times, and all other checks twice.'
+    },
+    {
+        percent: '121 to 125',
+        severity: 3,
+        name: 'Knocked Senseless',
+        Result: 'You can no longer upgrade dice for checks.'
+    },
+    //---------------------------------------- Severity 4
+    {
+        percent: '126 to 130',
+        severity: 4,
+        name: 'Gruesome Injury',
+        Result: 'Roll 1d10 to determine one wounded characteristic -- roll results(1-3 = Brawn, 4-6 = Agility, 7 = Intellect, 8 = Cunning, 9 = Presence, 10 = Willpower. Characteristic is permanently one point lower.'
+    },
+    {
+        percent: '131 to 140',
+        severity: 4,
+        name: 'Bleeding Out',
+        Result: 'Suffer 1 wound and 1 strain every round at the beginning of turn. For every 5 wounds suffered beyond wound threshold, suffer one additional Critical Injury (ignore the details for any result below this result).'
+    },
+    {
+        percent: '141 to 150',
+        severity: 4,
+        name: 'The End is Nigh',
+        Result: 'Die after the last Initiative slot during the next round.'
+    },
+    {
+        percent: '151',
+        severity: 4,
+        name: 'Dead',
+        Result: 'Complete, absolute death.'
+    }
+];
+var critTableMachine = [
+    {
+        percent: '1 to 9',
+        severity: 1,
+        name: 'Mechanical Stress',
+        Result: 'Ship or vehicle suffers 1 system strain.'
+    },
+    {
+        percent: '10 to 18',
+        severity: 1,
+        name: 'Jostled',
+        Result: 'All crew members suffer 1 strain.'
+    },
+    {
+        percent: '19 to 27',
+        severity: 1,
+        name: 'Losing Power to Shields',
+        Result: 'Decrease defense in affected defense zone by 1 until repaired. If ship or vehicle has no defense, suffer 1 system strain.'
+    },
+    {
+        percent: '28 to 36',
+        severity: 1,
+        name: 'Knocked Off Course',
+        Result: 'On next turn, pilot cannot execute any maneuvers. Instead, must make a Piloting check to regain bearings and resume course. Difficulty depends on current speed.'
+    },
+    {
+        percent: '37 to 45',
+        severity: 1,
+        name: 'Tailspin',
+        Result: 'All firing from ship or vehicle suffers 2 setback dice until end of pilot\'s next turn.'
+    },
+    {
+        percent: '46 to 54',
+        severity: 1,
+        name: 'Component Hit',
+        Result: 'One component of the attacker\'s choice is knocked offline, and is rendered inoperable until the end of the following round. See page 245 CRB for Small/Large Vehicle and Ship Component tables. '
+    },
+    // --------------- severity : 2
+    {
+        percent: '55 to 63',
+        severity: 2,
+        name: 'Shields Failing',
+        Result: 'Decrease defense in all defense zones by 1 until repaired. If ship or vehicle has no defense, suffer 2 system strain.'
+    },
+    {
+        percent: '64 to 72',
+        severity: 2,
+        name: 'Hyperdrive or Navicomputer Failure',
+        Result: 'Cannot make any jump to hyperspace until repaired. If ship or vehicle has no hyperdrive, navigation systems fail leaving it unable to tell where it is or is going.'
+    },
+    {
+        percent: '73 to 81',
+        severity: 2,
+        name: 'Power Fluctuations',
+        Result: 'Pilot cannot voluntarily inflict system strain on the ship until repaired.'
+    },
+    // --------------- severity : 3
+    {
+        percent: '82 to 90',
+        severity: 3,
+        name: 'Shields Down',
+        Result: 'Decrease defense in affected defense zone to 0 and all other defense zones by 1 point until repaired. If ship or vehicle has no defense, suffer 4 system strain.'
+    },
+    {
+        percent: '91 to 99',
+        severity: 3,
+        name: 'Engine Damaged',
+        Result: 'Ship or vehicle\'s maximum speed reduced by 1, to a minimum of 1, until repaired.'
+    },
+    {
+        percent: '100 to 108',
+        severity: 3,
+        name: 'Shield Overload',
+        Result: 'Decrease defense in all defense zones to 0 until repaired. In addition, suffer 2 system strain. Cannot be repaired until end of encounter. If ship or vehicle has no defense, reduce armor by 1 until repaired.'
+    },
+    {
+        percent: '109 to 117',
+        severity: 3,
+        name: 'Engines Down',
+        Result: 'Ship or vehicle\'s maximum speed reduced to 0. In addition, ship or vehicle cannot execute maneuvers until repaired. Ship continues on course at current speed and cannot be stopped or course changed until repaired.'
+    },
+    {
+        percent: '118 to 126',
+        severity: 3,
+        name: 'Major System Failure',
+        Result: 'One component of the attacker\'s choice is heavily damages, and is inoperable until the critical hit is repaired. See page 245 CRB for Small/Large Vehicle and Ship Component tables. '
+    },
+    // --------------- severity : 4
+    {
+        percent: '127 to 133',
+        severity: 4,
+        name: 'Major Hull Breach',
+        Result: 'Ships and vehicles of silhouette 4 and smaller depressurize in a number of rounds equal to silhouette. Ships of silhouette 5 and larger don\'t completely depressurize, but parts do (specifics at GM discretion). Ships and vehicles operating in atmosphere instead suffer a Destabilized Critical.'
+    },
+    {
+        percent: '134 to 138',
+        severity: 4,
+        name: 'Destabilised',
+        Result: 'Reduce ship or vehicle\'s hull integrity threshold and system strain threshold to half original values until repaired.'
+    },
+    {
+        percent: '139 to 144',
+        severity: 4,
+        name: 'Fire!',
+        Result: 'Fire rages through ship or vehicle and it immediately takes 2 system strain. Fire can be extinguished with appropriate skill, Vigilance or Cool checks at GM\'s discretion. Takes one round per two silhouette to put out.'
+    },
+    {
+        percent: '145 to 153',
+        severity: 4,
+        name: 'Breaking Up',
+        Result: 'At the end of next round, ship is completely destroyed. Anyone aboard has one round to reach escape pod or bail out before they are lost.'
+    },
+    {
+        percent: '154+',
+        severity: 4,
+        name: 'Vaporized',
+        Result: 'The ship or Vehicle is completely destroyed.'
+    }
+];
 
 eote.process.crit = function (cmd, diceObj) {
 
@@ -2482,304 +2782,6 @@ eote.process.crit = function (cmd, diceObj) {
     eote.process.logger("eote.process.crit", "");
 
     var characterObj = [{ name: diceObj.vars.characterName, id: diceObj.vars.characterID }];
-    var critTableLifeform = [
-        {
-            percent: '1 to 5',
-            severity: 1,
-            name: 'Minor Nick',
-            Result: 'Suffer 1 strain.'
-        },
-        {
-            percent: '6 to 10',
-            severity: 1,
-            name: 'Slowed Down',
-            Result: 'May only act during last allied Initiative slot on next turn.'
-        },
-        {
-            percent: '11 to 15',
-            severity: 1,
-            name: 'Sudden Jolt',
-            Result: 'May only act during last hero Initiative slot on next turn.'
-        },
-        {
-            percent: '16 to 20',
-            severity: 1,
-            name: 'Distracted',
-            Result: 'Cannot perform free maneuver on next turn.'
-        },
-        {
-            percent: '21 to 25',
-            severity: 1,
-            name: 'Off-Balance',
-            Result: 'Add 1 Setback die to next skill check.'
-        },
-        {
-            percent: '26 to 30',
-            severity: 1,
-            name: 'Discouraging Wound',
-            Result: 'Flip one light destiny to dark.'
-        },
-        {
-            percent: '31 to 35',
-            severity: 1,
-            name: 'Stunned',
-            Result: 'Staggered, cannot perform action on next turn.'
-        },
-        {
-            percent: '36 to 40',
-            severity: 1,
-            name: 'Stinger',
-            Result: 'Increase difficulty of next check by 1 Difficulty die.'
-        },
-        //----------------------------- Severity 2
-        {
-            percent: '41 to 45',
-            severity: 2,
-            name: 'Bowled Over',
-            Result: 'Knocked prone and suffer 1 strain.'
-        },
-        {
-            percent: '46 to 50',
-            severity: 2,
-            name: 'Head Ringer',
-            Result: 'Increase difficulty of all Intellect and Cunning checks by 1 Difficulty die until end of encounter.'
-        },
-        {
-            percent: '51 to 55',
-            severity: 2,
-            name: 'Fearsome Wound',
-            Result: 'Increase difficulty of all Presence and Willpower checks by 1 Difficulty die until end of encounter.'
-        },
-        {
-            percent: '56 to 60',
-            severity: 2,
-            name: 'Agonizing Wound',
-            Result: 'Increase difficulty of all Brawn and Agility checks by 1 Difficulty die until end of encounter.'
-        },
-        {
-            percent: '61 to 65',
-            severity: 2,
-            name: 'Slightly Dazed',
-            Result: 'Add 1 Setback die to all skill checks until end of encounter.'
-        },
-        {
-            percent: '66 to 70',
-            severity: 2,
-            name: 'Scattered Senses',
-            Result: 'Remove all Boost dice from all skill checks until end of encounter.'
-        },
-        {
-            percent: '71 to 75',
-            severity: 2,
-            name: 'Hamstrung',
-            Result: 'Lose free maneuver until end of encounter.'
-        },
-        {
-            percent: '76 to 80',
-            severity: 2,
-            name: 'Staggered',
-            Result: 'Attacker may immediately attempt another free attack against you using same dice pool as original attack.'
-        },
-        {
-            percent: '81 to 85',
-            severity: 2,
-            name: 'Winded',
-            Result: 'Cannot voluntarily suffer strain to activate abilities or gain additional maneuvers until end of encounter.'
-        },
-        {
-            percent: '86 to 90',
-            severity: 2,
-            name: 'Compromised',
-            Result: 'Increase difficulty of all skill checks by 1 Difficulty die until end of encounter.'
-        },
-        //---------------------------------------- Severity 3
-        {
-            percent: '91 to 95',
-            severity: 3,
-            name: 'At the Brink',
-            Result: 'Suffer 1 strain each time you perform an action.'
-        },
-        {
-            percent: '96 to 100',
-            severity: 3,
-            name: 'Crippled',
-            Result: 'Limb crippled until healed or replaced. Increase difficulty of all checks that use that limb by 1 Difficulty die.'
-        },
-        {
-            percent: '101 to 105',
-            severity: 3,
-            name: 'Maimed',
-            Result: 'Limb permanently lost. Unless you have a cybernetic replacement, cannot perform actions that use that limb. Add 1 Setback to all other actions.'
-        },
-        {
-            percent: '106 to 110',
-            severity: 3,
-            name: 'Horrific Injury',
-            Result: 'Roll 1d10 to determine one wounded characteristic -- roll results(1-3 = Brawn, 4-6 = Agility, 7 = Intellect, 8 = Cunning, 9 = Presence, 10 = Willpower. Until Healed, treat characteristic as one point lower.'
-        },
-        {
-            percent: '111 to 115',
-            severity: 3,
-            name: 'Temporarily Lame',
-            Result: 'Until healed, may not perform more than one maneuver each turn.'
-        },
-        {
-            percent: '116 to 120',
-            severity: 3,
-            name: 'Blinded',
-            Result: 'Can no longer see. Upgrade the difficulty of Perception and Vigilance checks three times, and all other checks twice.'
-        },
-        {
-            percent: '121 to 125',
-            severity: 3,
-            name: 'Knocked Senseless',
-            Result: 'You can no longer upgrade dice for checks.'
-        },
-        //---------------------------------------- Severity 4
-        {
-            percent: '126 to 130',
-            severity: 4,
-            name: 'Gruesome Injury',
-            Result: 'Roll 1d10 to determine one wounded characteristic -- roll results(1-3 = Brawn, 4-6 = Agility, 7 = Intellect, 8 = Cunning, 9 = Presence, 10 = Willpower. Characteristic is permanently one point lower.'
-        },
-        {
-            percent: '131 to 140',
-            severity: 4,
-            name: 'Bleeding Out',
-            Result: 'Suffer 1 wound and 1 strain every round at the beginning of turn. For every 5 wounds suffered beyond wound threshold, suffer one additional Critical Injury (ignore the details for any result below this result).'
-        },
-        {
-            percent: '141 to 150',
-            severity: 4,
-            name: 'The End is Nigh',
-            Result: 'Die after the last Initiative slot during the next round.'
-        },
-        {
-            percent: '151',
-            severity: 4,
-            name: 'Dead',
-            Result: 'Complete, absolute death.'
-        }
-    ];
-    var critTableMachine = [
-        {
-            percent: '1 to 9',
-            severity: 1,
-            name: 'Mechanical Stress',
-            Result: 'Ship or vehicle suffers 1 system strain.'
-        },
-        {
-            percent: '10 to 18',
-            severity: 1,
-            name: 'Jostled',
-            Result: 'All crew members suffer 1 strain.'
-        },
-        {
-            percent: '19 to 27',
-            severity: 1,
-            name: 'Losing Power to Shields',
-            Result: 'Decrease defense in affected defense zone by 1 until repaired. If ship or vehicle has no defense, suffer 1 system strain.'
-        },
-        {
-            percent: '28 to 36',
-            severity: 1,
-            name: 'Knocked Off Course',
-            Result: 'On next turn, pilot cannot execute any maneuvers. Instead, must make a Piloting check to regain bearings and resume course. Difficulty depends on current speed.'
-        },
-        {
-            percent: '37 to 45',
-            severity: 1,
-            name: 'Tailspin',
-            Result: 'All firing from ship or vehicle suffers 2 setback dice until end of pilot\'s next turn.'
-        },
-        {
-            percent: '46 to 54',
-            severity: 1,
-            name: 'Component Hit',
-            Result: 'One component of the attacker\'s choice is knocked offline, and is rendered inoperable until the end of the following round. See page 245 CRB for Small/Large Vehicle and Ship Component tables. '
-        },
-        // --------------- severity : 2
-        {
-            percent: '55 to 63',
-            severity: 2,
-            name: 'Shields Failing',
-            Result: 'Decrease defense in all defense zones by 1 until repaired. If ship or vehicle has no defense, suffer 2 system strain.'
-        },
-        {
-            percent: '64 to 72',
-            severity: 2,
-            name: 'Hyperdrive or Navicomputer Failure',
-            Result: 'Cannot make any jump to hyperspace until repaired. If ship or vehicle has no hyperdrive, navigation systems fail leaving it unable to tell where it is or is going.'
-        },
-        {
-            percent: '73 to 81',
-            severity: 2,
-            name: 'Power Fluctuations',
-            Result: 'Pilot cannot voluntarily inflict system strain on the ship until repaired.'
-        },
-        // --------------- severity : 3
-        {
-            percent: '82 to 90',
-            severity: 3,
-            name: 'Shields Down',
-            Result: 'Decrease defense in affected defense zone to 0 and all other defense zones by 1 point until repaired. If ship or vehicle has no defense, suffer 4 system strain.'
-        },
-        {
-            percent: '91 to 99',
-            severity: 3,
-            name: 'Engine Damaged',
-            Result: 'Ship or vehicle\'s maximum speed reduced by 1, to a minimum of 1, until repaired.'
-        },
-        {
-            percent: '100 to 108',
-            severity: 3,
-            name: 'Shield Overload',
-            Result: 'Decrease defense in all defense zones to 0 until repaired. In addition, suffer 2 system strain. Cannot be repaired until end of encounter. If ship or vehicle has no defense, reduce armor by 1 until repaired.'
-        },
-        {
-            percent: '109 to 117',
-            severity: 3,
-            name: 'Engines Down',
-            Result: 'Ship or vehicle\'s maximum speed reduced to 0. In addition, ship or vehicle cannot execute maneuvers until repaired. Ship continues on course at current speed and cannot be stopped or course changed until repaired.'
-        },
-        {
-            percent: '118 to 126',
-            severity: 3,
-            name: 'Major System Failure',
-            Result: 'One component of the attacker\'s choice is heavily damages, and is inoperable until the critical hit is repaired. See page 245 CRB for Small/Large Vehicle and Ship Component tables. '
-        },
-        // --------------- severity : 4
-        {
-            percent: '127 to 133',
-            severity: 4,
-            name: 'Major Hull Breach',
-            Result: 'Ships and vehicles of silhouette 4 and smaller depressurize in a number of rounds equal to silhouette. Ships of silhouette 5 and larger don\'t completely depressurize, but parts do (specifics at GM discretion). Ships and vehicles operating in atmosphere instead suffer a Destabilized Critical.'
-        },
-        {
-            percent: '134 to 138',
-            severity: 4,
-            name: 'Destabilised',
-            Result: 'Reduce ship or vehicle\'s hull integrity threshold and system strain threshold to half original values until repaired.'
-        },
-        {
-            percent: '139 to 144',
-            severity: 4,
-            name: 'Fire!',
-            Result: 'Fire rages through ship or vehicle and it immediately takes 2 system strain. Fire can be extinguished with appropriate skill, Vigilance or Cool checks at GM\'s discretion. Takes one round per two silhouette to put out.'
-        },
-        {
-            percent: '145 to 153',
-            severity: 4,
-            name: 'Breaking Up',
-            Result: 'At the end of next round, ship is completely destroyed. Anyone aboard has one round to reach escape pod or bail out before they are lost.'
-        },
-        {
-            percent: '154+',
-            severity: 4,
-            name: 'Vaporized',
-            Result: 'The ship or Vehicle is completely destroyed.'
-        }
-    ];
     var critRoll = function (addCritNum, type) {
         var openSlot = false;
         var diceRoll = '';
@@ -3793,6 +3795,24 @@ eote.process.diceOutput = function (diceObj, playerName, playerID) {
         sendChat("System", "/w gm " + suggestions);
     }
     eote.process.logger("eote.process.rollResult", diceTextResults);
+    if (diceObj.vars.inflictedCriticalValue) {
+        for (var key in critTableLifeform) {
+            var percent = critTableLifeform[key].percent.split(' to ');
+            var low = parseInt(percent[0]);
+            var high = percent[1] ? parseInt(percent[1]) : 1000;
+            var rollTotal = diceObj.vars.inflictedCriticalValue;
+           
+            if ((rollTotal >= low) && (rollTotal <= high)) {
+                var chat = '/direct &{template:base} {{title=NPC Critical (if no bonus)}} ';
+                chat = chat + '{{subtitle=' + diceObj.vars.characterName + '}}';
+                chat = chat + '{{Crit Dice Roll=' + rollTotal + '}}';
+                chat = chat + '{{wide=<b>' + critTableLifeform[key].name + '</b><br>';
+                chat = chat + critTableLifeform[key].Result + '<br>}}';
+
+                sendChat(diceObj.vars.characterName, chat);
+            }
+        }
+    }
 };
 
 eote.roll = {
