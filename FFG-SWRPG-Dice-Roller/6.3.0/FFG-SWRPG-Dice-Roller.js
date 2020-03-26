@@ -2465,7 +2465,7 @@ eote.process.calculateDamage = function (cmd, diceObj) {
         diceObj.vars.calculatedDamage = "{{Hit For=0}}";
     }
     if (diceObj.totals.advantage >= critical) {
-        var randomCrit =  Math.floor(Math.random() * Math.floor(101));
+        var randomCrit =  Math.floor(Math.random() * 100) + 1;
         diceObj.vars.inflictedCriticalValue = randomCrit;
         diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Critical Hit=" + randomCrit + " (before bonuses)}}";
     }
