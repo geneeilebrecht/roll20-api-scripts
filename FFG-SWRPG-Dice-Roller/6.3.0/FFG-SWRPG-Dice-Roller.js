@@ -1409,7 +1409,8 @@ eote.defaults = {
         critShip: /critship\((.*?)\)/,
         unusable: /unusableWeapon/,
         destiny: /destiny (useDark|useLight|registerPlayer|sendUpdate|doRoll|clearPool)/,
-        combat: /combat\(personal|vehicle\)/
+        combat: /combat\(personal|vehicle\)/,
+        calculateDamage: /calculateDamage\((.*?)\)/
     },
     destinyListeners: []
 };
@@ -1855,6 +1856,13 @@ eote.process.setup = function (cmd, playerName, playerID) {
             return false;
         }
     }
+
+    var calculateDamageMatch = cmd.match(eote.defaults.regex.calculateDamage);
+
+    if (calculateDamageMatch) {
+        diceObj = eote.process.calculateDamage(calculateDamageMatch,diceObj);
+    }
+
     var critMatch = cmd.match(eote.defaults.regex.crit);
 
     if (critMatch) {
@@ -2444,6 +2452,25 @@ eote.process.initiative = function (cmd, diceObj) {
     });
     Campaign().set("turnorder", JSON.stringify(turnorder));
 };
+
+eote.process.calculateDamage = function (cmd, diceObj) {
+    var values = String(cmd[1]);
+    var splitCmd = values.split("|");
+    var damage = parseInt(splitCmd[0]);
+    var critical = parseInt(splitCmd[1]);
+    var calculatedDamage = (diceObj.totals.success + damage) - 1;
+    sendChat('Dice Roller',splitCmd[1]);
+    if (diceObj.totals.success > 0) {
+        diceObj.vars.calculatedDamage = "{{Hit For=" + calculatedDamage + " (before bonuses)}}";
+    } else {
+        diceObj.vars.calculatedDamage = "{{Hit For=0}}";
+    }
+    if (diceObj.totals.advantage >= critical) {
+        var randomCrit =  Math.floor(Math.random() * Math.floor(101));
+        diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Critical Hit=" + randomCrit + " (before bonuses)}}";
+    }
+    return diceObj;
+}
 
 eote.process.crit = function (cmd, diceObj) {
 
@@ -3747,15 +3774,21 @@ eote.process.diceOutput = function (diceObj, playerName, playerID) {
                 log("Report Me! A suggestionFlag of '"+ suggestionsFlag +"' is not handled properly!");
         }
     }
-
+    if (diceObj.vars.calculatedDamage) {
+        diceTextResults += diceObj.vars.calculatedDamage; 
+    }
     if (eote.defaults.globalVars.diceGraphicsChat === true) {
         chatGlobal = chatGlobal + '{{results=' + diceGraphicsResults + '}}';
         if (suggestions && suggestionsFlag == suggestionStatus.always)
             chatGlobal += " " + suggestions;
+        if (diceObj.vars.calculatedDamage) {
+            chatGlobal += diceObj.vars.calculatedDamage; 
+        }
         sendChat(characterPlayer, chatGlobal);
     } else {
         sendChat("Roll", diceTextResults);
     }
+    
 
     if (suggestions && suggestionsFlag == suggestionStatus.whisper) {
         sendChat("System", "/w gm " + suggestions);
