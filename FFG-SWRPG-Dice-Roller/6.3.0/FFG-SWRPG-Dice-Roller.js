@@ -1410,7 +1410,8 @@ eote.defaults = {
         unusable: /unusableWeapon/,
         destiny: /destiny (useDark|useLight|registerPlayer|sendUpdate|doRoll|clearPool)/,
         combat: /combat\(personal|vehicle\)/,
-        calculateDamage: /calculateDamage\((.*?)\)/
+        calculateDamage: /calculateDamage\((.*?)\)/,
+        rollEnemyCritical: /rollEmemyCritical/
     },
     destinyListeners: []
 };
@@ -1770,8 +1771,18 @@ eote.process.setup = function (cmd, playerName, playerID) {
     var gmdiceMatch = cmd.match(eote.defaults.regex.gmdice);
 
     if (gmdiceMatch) {
-        cmd = eote.process.gmdice(cmd); // update the cmd string to contain the gmdice
-        eote.process.logger("eote.process.setup.gmDice", "New command: " + cmd);
+        // Check to see if GM Dice pool is enabled for roll
+        var useGmDice = true;
+        var gmDiceSetting = findObjs({_type: "attribute",name: "use-gm-dice-pool-for-rolls",_characterid: eote.defaults['-DicePoolID']})[0];
+        if (typeof gmDiceSetting !== 'undefined') {
+            if (gmDiceSetting.get('current') == 0) {
+                useGmDice = false;
+            }
+        }
+        if (useGmDice) {
+            cmd = eote.process.gmdice(cmd); // update the cmd string to contain the gmdice
+            eote.process.logger("eote.process.setup.gmDice", "New command: " + cmd);
+        }
     }
     var encumMatch = cmd.match(eote.defaults.regex.encum);
 
@@ -1856,11 +1867,16 @@ eote.process.setup = function (cmd, playerName, playerID) {
             return false;
         }
     }
-
     var calculateDamageMatch = cmd.match(eote.defaults.regex.calculateDamage);
 
     if (calculateDamageMatch) {
         diceObj = eote.process.calculateDamage(calculateDamageMatch,diceObj);
+    }
+    var rollEnemyCritical = cmd.match(eote.defaults.regex.rollEnemyCritical);
+
+    if (rollEnemyCritical) {
+        eote.process.rollEnemyCritical(diceObj);
+        return false;
     }
 
     var critMatch = cmd.match(eote.defaults.regex.crit);
@@ -2456,33 +2472,58 @@ eote.process.initiative = function (cmd, diceObj) {
 eote.process.calculateDamage = function (cmd, diceObj) {
     var values = String(cmd[1]);
     var splitCmd = values.split("|");
-    var damage = parseInt(splitCmd[0]);
+    var baseDamage = parseInt(splitCmd[0]);
     var critical = parseInt(splitCmd[1]);
-    if (splitCmd.length > 2) {
-        var targetType = splitCmd[2];
-        diceObj.vars.targetType = targetType;
+    var damageBonus = parseInt(splitCmd[2]);
+    if (isNaN(damageBonus)) {
+        damageBonus = 0;
     }
-    if (splitCmd.length > 3) {
-        var criticalBonus = parseInt(splitCmd[3]);
-        diceObj.vars.criticalBonus = criticalBonus;
+    var criticalBonus = parseInt(splitCmd[3]);
+    if (isNaN(criticalBonus)) {
+        criticalBonus = 0;
     }
-    var calculatedDamage = (diceObj.totals.success + damage) - 1;
-    if (diceObj.totals.success > 0) {
-        diceObj.vars.calculatedDamage = "{{Hit For=" + calculatedDamage + " (before bonuses)}}";
+    var i = 4;
+    while (i<17) {
+        var attachmentDamageBonus = parseInt(splitCmd[i]);
+        if ( ! isNaN(attachmentDamageBonus)) {
+            damageBonus += attachmentDamageBonus;
+        }
+        i = i+2;
+    }
+    var i = 5;
+    while (i<18) {
+        var attachmentCriticalBonus = parseInt(splitCmd[i]);
+        if ( ! isNaN(attachmentCriticalBonus)) {
+            criticalBonus += attachmentCriticalBonus;
+        }
+        i = i+2;
+    }
+
+    var globalDamageBonus = findObjs({_type: "attribute",name: "damage-bonus",_characterid: diceObj.vars.characterID})[0];
+    if (typeof globalDamageBonus !== 'undefined') {
+        globalDamageBonus = parseInt(globalDamageBonus.get('current'));
     } else {
-        diceObj.vars.calculatedDamage = "{{Hit For=0}}";
+        globalDamageBonus = 0;
     }
-    if (diceObj.totals.advantage >= critical) {
-        var randomCrit =  Math.floor(Math.random() * 100) + 1;
-        diceObj.vars.inflictedCriticalValue = randomCrit;
-        diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Critical Roll=" + randomCrit + "}}";
-        if (typeof criticalBonus !== 'undefined') {
-            diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Critical Bonus=" + criticalBonus + "}}";
-            diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Total Critical=" + (criticalBonus + randomCrit) + "}}";
+    var bonusText = "";
+    if (globalDamageBonus > 0 || damageBonus > 0) {
+        bonusText = " (after bonuses)"
+    }
+    var calculatedDamage = ((diceObj.totals.success + baseDamage) - 1) + damageBonus + globalDamageBonus;
+    if (diceObj.totals.success > 0) {
+        diceObj.vars.calculatedDamage = "{{Hit For=<strong style='color:navy;'>" + calculatedDamage + "</strong>" + bonusText + "}}";
+    } else {
+        diceObj.vars.calculatedDamage = "{{Hit For=<span style='color:lightgray'>0</span>}}";
+    }
+    if (diceObj.totals.advantage >= critical)  {
+        diceObj.vars.inflictedCritical = true;
+        diceObj.vars.calculatedDamage = diceObj.vars.calculatedDamage + "{{Critical Hit=<strong style='color:maroon;'>Critical Hit!</strong>}}";
+        if (typeof criticalBonus !== 'undefined' && ! isNaN(criticalBonus) && criticalBonus > 0) {
+            diceObj.vars.weaponCriticalBonus = criticalBonus;
         }
     }
     return diceObj;
-}
+};
 
 var critTableLifeform = [
     {
@@ -2866,7 +2907,7 @@ eote.process.crit = function (cmd, diceObj) {
                         update: true
                     },
                 ];
-                var chat = '/direct &{template:base} {{title='+type.charAt(0).toUpperCase()+type.slice(1)+' Critical}} ';
+                var chat = '/direct &{template:critical} {{title='+type.charAt(0).toUpperCase()+type.slice(1)+' Critical}} ';
                 chat = chat + '{{subtitle=' + diceObj.vars.characterName + '}}';
                 chat = chat + '{{Previous Criticals=' + totalcrits + ' x 10}}';
                 if (rollOffset) {
@@ -3019,7 +3060,7 @@ eote.process.createRepeatingCrit = function(type,charactersObj,critAttrs) {
 eote.process.gmdice = function (cmd) {
 
     /* gmdice
-     * default: 
+     * default: g
      * Description: Update CMD string to include -DicePool dice
      * Command: (gmdice)
      * ---------------------------------------------------------------- */
@@ -3807,38 +3848,54 @@ eote.process.diceOutput = function (diceObj, playerName, playerID) {
         sendChat("System", "/w gm " + suggestions);
     }
     eote.process.logger("eote.process.rollResult", diceTextResults);
-    if (diceObj.vars.inflictedCriticalValue) {
-        var criticalTable = critTableLifeform;
-        var targetTypeName = "NPC";
-        if(diceObj.vars.targetType) {
-            targetTypeName = diceObj.vars.targetType.toUpperCase();
-        }
-        if (targetTypeName == "VEHICLE" || targetTypeName == "STARSHIP") {
-            criticalTable = critTableMachine;
-        }
-        for (var key in criticalTable) {
-            var percent = criticalTable[key].percent.split(' to ');
-            var low = parseInt(percent[0]);
-            var high = percent[1] ? parseInt(percent[1]) : 1000;
-            var rollTotal = diceObj.vars.inflictedCriticalValue;
-            var afterBonus = rollTotal;
-            if (diceObj.vars.criticalBonus) {
-                afterBonus = diceObj.vars.criticalBonus + rollTotal;
-            }
-           
-            if ((afterBonus >= low) && (afterBonus <= high)) {
-                var chat = '/direct &{template:base} {{title=' + targetTypeName + ' Critical}} ';
-                chat = chat + '{{subtitle=' + diceObj.vars.characterName + '}}';
-                chat = chat + '{{Crit Dice Roll=' + rollTotal + '}}';
-                if (diceObj.vars.criticalBonus) {
-                    chat = chat + '{{Crit Bonus=' + diceObj.vars.criticalBonus + '}}';
-                    chat = chat + '{{Total Critical=' + (rollTotal + diceObj.vars.criticalBonus) + '}}';
-                }
-                chat = chat + '{{wide=<b>' + criticalTable[key].name + '</b><br>';
-                chat = chat + criticalTable[key].Result + '<br>}}';
+    if (diceObj.vars.inflictedCritical) {
+        eote.process.rollEnemyCritical(diceObj);
+    }
+};
 
-                sendChat(diceObj.vars.characterName, chat);
+eote.process.rollEnemyCritical = function(diceObj)
+{
+    var targetType = findObjs({_type: "attribute",name: "target-type",_characterid: diceObj.vars.characterID})[0];
+    var criticalBonus = findObjs({_type: "attribute",name: "critical-bonus",_characterid: diceObj.vars.characterID})[0];
+    var bonus = 0;
+    if (typeof criticalBonus !== 'undefined') {
+        bonus = parseInt(criticalBonus.get('current'));
+    }
+    if (diceObj.vars.weaponCriticalBonus && diceObj.vars.weaponCriticalBonus > 0 && ! isNaN(parseInt(diceObj.vars.weaponCriticalBonus))) {
+        bonus += parseInt(diceObj.vars.weaponCriticalBonus);
+    }
+    var randomCrit =  Math.floor(Math.random() * 100) + 1;
+
+    var criticalTable = critTableLifeform;
+    var targetTypeName = "NPC";
+    if(typeof targetType !== 'undefined') {
+        targetTypeName = targetType.get('current').toUpperCase();
+    }
+    if (targetTypeName == "VEHICLE" || targetTypeName == "STARSHIP") {
+        criticalTable = critTableMachine;
+    }
+    for (var key in criticalTable) {
+        var percent = criticalTable[key].percent.split(' to ');
+        var low = parseInt(percent[0]);
+        var high = percent[1] ? parseInt(percent[1]) : 1000;
+        var rollTotal = randomCrit;
+        var afterBonus = rollTotal;
+        if (! isNaN(bonus) && bonus > 0) {
+            afterBonus = bonus + rollTotal;
+        }
+
+        if ((afterBonus >= low) && (afterBonus <= high)) {
+            var chat = '/direct &{template:critical} {{title=' + targetTypeName + ' Critical}} ';
+            chat = chat + '{{flavor=Inflicted by <strong style="color: navy;">' + diceObj.vars.characterName + '</strong>}}';
+            chat = chat + '{{Crit Dice Roll=' + rollTotal + '}}';
+            if (! isNaN(bonus) && bonus > 0) {
+                chat = chat + '{{Crit Bonus=' + bonus + '}}';
+                chat = chat + '{{Total Critical=' + (randomCrit + bonus) + '}}';
             }
+            chat = chat + '{{wide=<b>' + criticalTable[key].name + '</b><br>';
+            chat = chat + criticalTable[key].Result + '<br>}}';
+
+            sendChat(diceObj.vars.characterName, chat);
         }
     }
 };
